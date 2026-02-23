@@ -15,6 +15,12 @@ npm i -g @toolbridge/wiro-cli
 wiro
 ```
 
+Alternative installer (macOS/Linux):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/wiro-ai/wiro-cli/main/scripts/install.sh | sh
+```
+
 On first run, CLI asks:
 1. API key
 2. API secret
@@ -46,6 +52,12 @@ wiro auth logout
 ```bash
 go build -o wiro ./cmd/wiro
 ./wiro
+```
+
+Build release assets locally:
+
+```bash
+./scripts/build-release-assets.sh
 ```
 
 ## Config paths
@@ -80,3 +92,17 @@ Environment overrides:
 - `WIRO_CLI_DOWNLOAD_BASE`
 - `WIRO_CLI_SKIP_DOWNLOAD=1`
 - `WIRO_CLI_BIN`
+- `WIRO_CLI_REPO`
+
+## Release and Publish
+
+- Push tag `vX.Y.Z` to trigger GitHub Release workflow.
+- Release workflow uploads these assets:
+  - `wiro-darwin-x64`
+  - `wiro-darwin-arm64`
+  - `wiro-linux-x64`
+  - `wiro-linux-arm64`
+  - `wiro-win32-x64.exe`
+  - `wiro-win32-arm64.exe`
+- When release is published, npm publish workflow runs and publishes `@toolbridge/wiro-cli`.
+- Required GitHub secret for npm workflow: `NPM_TOKEN`.

@@ -15,9 +15,23 @@ function getPackageVersion() {
   return pkg.version;
 }
 
+function mapPlatform(platform) {
+  if (platform === 'darwin' || platform === 'linux' || platform === 'win32') {
+    return platform;
+  }
+  throw new Error(`Unsupported platform: ${platform}`);
+}
+
+function mapArch(arch) {
+  if (arch === 'x64' || arch === 'arm64') {
+    return arch;
+  }
+  throw new Error(`Unsupported architecture: ${arch}`);
+}
+
 function getAssetName() {
-  const platform = process.platform;
-  const arch = process.arch;
+  const platform = mapPlatform(process.platform);
+  const arch = mapArch(process.arch);
   const ext = platform === 'win32' ? '.exe' : '';
   return `wiro-${platform}-${arch}${ext}`;
 }
@@ -74,7 +88,8 @@ async function main() {
   const version = getPackageVersion();
   const asset = getAssetName();
 
-  const defaultBase = `https://github.com/wiro-ai/wiro-cli/releases/download/v${version}`;
+  const repo = process.env.WIRO_CLI_REPO || 'wiro-ai/wiro-cli';
+  const defaultBase = `https://github.com/${repo}/releases/download/v${version}`;
   const base = process.env.WIRO_CLI_DOWNLOAD_BASE || defaultBase;
   const url = `${base}/${asset}`;
 

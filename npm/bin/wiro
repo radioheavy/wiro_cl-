@@ -4,9 +4,23 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 
+function mapPlatform(platform) {
+  if (platform === 'darwin' || platform === 'linux' || platform === 'win32') {
+    return platform;
+  }
+  throw new Error(`Unsupported platform: ${platform}`);
+}
+
+function mapArch(arch) {
+  if (arch === 'x64' || arch === 'arm64') {
+    return arch;
+  }
+  throw new Error(`Unsupported architecture: ${arch}`);
+}
+
 function getAssetName() {
-  const platform = process.platform;
-  const arch = process.arch;
+  const platform = mapPlatform(process.platform);
+  const arch = mapArch(process.arch);
   const ext = platform === 'win32' ? '.exe' : '';
   return `wiro-${platform}-${arch}${ext}`;
 }
@@ -18,7 +32,14 @@ function resolveBinaryPath() {
   return path.join(__dirname, '..', 'dist', getAssetName());
 }
 
-const bin = resolveBinaryPath();
+let bin;
+try {
+  bin = resolveBinaryPath();
+} catch (err) {
+  console.error(err.message);
+  process.exit(1);
+}
+
 if (!fs.existsSync(bin)) {
   console.error(`Wiro CLI binary not found at: ${bin}`);
   console.error('Reinstall package or set WIRO_CLI_BIN to a valid binary path.');

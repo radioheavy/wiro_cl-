@@ -3,6 +3,14 @@
   "version": "0.1.0",
   "description": "Community npm wrapper for Wiro CLI",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wiro-ai/wiro-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/wiro-ai/wiro-cli/issues"
+  },
+  "homepage": "https://github.com/wiro-ai/wiro-cli#readme",
   "bin": {
     "wiro": "bin/wiro"
   },
@@ -16,5 +24,8 @@
   ],
   "engines": {
     "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

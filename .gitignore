@@ -1,0 +1,12 @@
+# Go build artifacts
+wiro
+dist/
+
+# Local outputs
+wiro-outputs/
+
+# macOS
+.DS_Store
+
+# npm local cache dir (optional)
+npm/dist/
