@@ -1,0 +1,20 @@
+{
+  "name": "@wiro-ai/cli",
+  "version": "0.1.0",
+  "description": "Wiro AI CLI npm wrapper",
+  "license": "MIT",
+  "bin": {
+    "wiro": "bin/wiro"
+  },
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "files": [
+    "bin",
+    "scripts",
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}

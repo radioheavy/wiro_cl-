@@ -1,0 +1,39 @@
+#!/usr/bin/env node
+
+const fs = require('fs');
+const path = require('path');
+const { spawn } = require('child_process');
+
+function getAssetName() {
+  const platform = process.platform;
+  const arch = process.arch;
+  const ext = platform === 'win32' ? '.exe' : '';
+  return `wiro-${platform}-${arch}${ext}`;
+}
+
+function resolveBinaryPath() {
+  if (process.env.WIRO_CLI_BIN) {
+    return process.env.WIRO_CLI_BIN;
+  }
+  return path.join(__dirname, '..', 'dist', getAssetName());
+}
+
+const bin = resolveBinaryPath();
+if (!fs.existsSync(bin)) {
+  console.error(`Wiro CLI binary not found at: ${bin}`);
+  console.error('Reinstall package or set WIRO_CLI_BIN to a valid binary path.');
+  process.exit(1);
+}
+
+const child = spawn(bin, process.argv.slice(2), { stdio: 'inherit' });
+child.on('error', (err) => {
+  console.error(`Failed to start Wiro CLI binary: ${err.message}`);
+  process.exit(1);
+});
+child.on('exit', (code, signal) => {
+  if (signal) {
+    process.kill(process.pid, signal);
+    return;
+  }
+  process.exit(code ?? 1);
+});
