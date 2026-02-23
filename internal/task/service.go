@@ -44,7 +44,7 @@ type WatchEvent struct {
 
 func isTerminal(status string) bool {
 	switch status {
-	case "task_postprocess_end", "task_cancel", "task_end", "task_error_full":
+	case "task_postprocess_end", "task_cancel", "task_error_full":
 		return true
 	default:
 		return false
