@@ -18,7 +18,7 @@ wiro
 Alternative installer (macOS/Linux):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wiro-ai/wiro-cli/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/radioheavy/wiro_cl-/main/scripts/install.sh | sh
 ```
 
 On first run, CLI asks:
@@ -85,7 +85,7 @@ Wrapper package is in `npm/` and expects release assets named:
 
 Postinstall default download source:
 
-`https://github.com/wiro-ai/wiro-cli/releases/download/v<version>/<asset>`
+`https://github.com/radioheavy/wiro_cl-/releases/download/v<version>/<asset>`
 
 Environment overrides:
 

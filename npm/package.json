@@ -5,12 +5,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/wiro-ai/wiro-cli.git"
+    "url": "git+https://github.com/radioheavy/wiro_cl-.git"
   },
   "bugs": {
-    "url": "https://github.com/wiro-ai/wiro-cli/issues"
+    "url": "https://github.com/radioheavy/wiro_cl-/issues"
   },
-  "homepage": "https://github.com/wiro-ai/wiro-cli#readme",
+  "homepage": "https://github.com/radioheavy/wiro_cl-#readme",
   "bin": {
     "wiro": "bin/wiro"
   },

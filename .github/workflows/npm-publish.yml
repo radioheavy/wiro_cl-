@@ -40,7 +40,7 @@ jobs:
             wiro-win32-x64.exe \
             wiro-win32-arm64.exe
           do
-            curl -fsI "https://github.com/wiro-ai/wiro-cli/releases/download/${TAG}/${asset}" > /dev/null
+            curl -fsI "https://github.com/radioheavy/wiro_cl-/releases/download/${TAG}/${asset}" > /dev/null
           done
 
       - name: Publish package

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="${WIRO_CLI_REPO:-wiro-ai/wiro-cli}"
+REPO="${WIRO_CLI_REPO:-radioheavy/wiro_cl-}"
 INSTALL_DIR="${WIRO_CLI_INSTALL_DIR:-/usr/local/bin}"
 VERSION="${WIRO_CLI_VERSION:-}"
 

@@ -88,7 +88,7 @@ async function main() {
   const version = getPackageVersion();
   const asset = getAssetName();
 
-  const repo = process.env.WIRO_CLI_REPO || 'wiro-ai/wiro-cli';
+  const repo = process.env.WIRO_CLI_REPO || 'radioheavy/wiro_cl-';
   const defaultBase = `https://github.com/${repo}/releases/download/v${version}`;
   const base = process.env.WIRO_CLI_DOWNLOAD_BASE || defaultBase;
   const url = `${base}/${asset}`;
