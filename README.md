@@ -11,7 +11,7 @@ Wiro CLI brings the Wiro model workflow to terminal:
 ## Quick install user flow
 
 ```bash
-npm i -g @toolbridge/wiro-cli
+npm i -g @radioheavy/wiro-cli
 wiro
 ```
 
@@ -104,5 +104,5 @@ Environment overrides:
   - `wiro-linux-arm64`
   - `wiro-win32-x64.exe`
   - `wiro-win32-arm64.exe`
-- When release is published, npm publish workflow runs and publishes `@toolbridge/wiro-cli`.
+- When release is published, npm publish workflow runs and publishes `@radioheavy/wiro-cli`.
 - Required GitHub secret for npm workflow: `NPM_TOKEN`.

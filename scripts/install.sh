@@ -13,7 +13,7 @@ case "${OS_UNAME}" in
   Linux) ASSET_OS="linux" ;;
   *)
     echo "Unsupported OS: ${OS_UNAME}" >&2
-    echo "Use npm install for this platform: npm i -g @toolbridge/wiro-cli" >&2
+    echo "Use npm install for this platform: npm i -g @radioheavy/wiro-cli" >&2
     exit 1
     ;;
 esac
