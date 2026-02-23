@@ -106,3 +106,21 @@ Environment overrides:
   - `wiro-win32-arm64.exe`
 - When release is published, npm publish workflow runs and publishes `@radioheavy/wiro-cli`.
 - Required GitHub secret for npm workflow: `NPM_TOKEN`.
+
+### Manual fallback (without GitHub Actions)
+
+If release/publish actions fail, run:
+
+```bash
+./scripts/prepare-manual-release.sh X.Y.Z
+```
+
+This command:
+- runs all Go tests
+- builds all 6 release binaries under `dist/release-vX.Y.Z/`
+- writes `SHA256SUMS`
+- updates `npm/package.json` version to `X.Y.Z`
+
+Then upload assets and publish npm manually (printed at the end of script):
+- `gh release create ...` (or `gh release upload ... --clobber`)
+- `cd npm && npm publish`
