@@ -167,7 +167,12 @@ func runInteractive(ctx context.Context, app *App, opts runOptions) error {
 
 	headerResult, err := app.AuthSvc.BuildHeaders(selectedProfile)
 	if err != nil {
-		return err
+		if tryErr := tryRecoverMissingProjectSecret(app, selectedProfile, err); tryErr == nil {
+			headerResult, err = app.AuthSvc.BuildHeaders(selectedProfile)
+		}
+		if err != nil {
+			return err
+		}
 	}
 
 	if !opts.JSON {
@@ -219,7 +224,7 @@ func runInteractive(ctx context.Context, app *App, opts runOptions) error {
 		output.PrintTask(finalTask)
 	}
 
-	paths, err := output.DownloadOutputs(finalTask, opts.OutputDir)
+	paths, err := output.DownloadOutputs(finalTask, opts.OutputDir, promptFromInputs(inputs))
 	if err != nil {
 		return err
 	}
@@ -230,6 +235,21 @@ func runInteractive(ctx context.Context, app *App, opts runOptions) error {
 		}
 	}
 	return nil
+}
+
+func promptFromInputs(values map[string][]api.MultipartValue) string {
+	if len(values) == 0 {
+		return ""
+	}
+	if arr, ok := values["prompt"]; ok && len(arr) > 0 {
+		return strings.TrimSpace(arr[0].Value)
+	}
+	for k, arr := range values {
+		if strings.EqualFold(strings.TrimSpace(k), "prompt") && len(arr) > 0 {
+			return strings.TrimSpace(arr[0].Value)
+		}
+	}
+	return ""
 }
 
 func resolveProject(ctx context.Context, app *App, selected string) (*api.Project, *config.ProjectProfile, error) {
@@ -364,6 +384,38 @@ func printWatchEvent(ev task.WatchEvent) {
 			fmt.Printf("  %s\n", short(t, 180))
 		}
 	}
+}
+
+func tryRecoverMissingProjectSecret(app *App, profile *config.ProjectProfile, buildErr error) error {
+	if profile == nil {
+		return buildErr
+	}
+	if !isInteractiveSession() {
+		return buildErr
+	}
+	msg := strings.ToLower(strings.TrimSpace(buildErr.Error()))
+	if !strings.Contains(msg, "requires signature auth") || !strings.Contains(msg, "api secret is missing") {
+		return buildErr
+	}
+
+	fmt.Printf("Project %s requires API secret.\n", profile.APIKey)
+	secret, err := promptSecret("API Secret for selected project")
+	if err != nil {
+		return err
+	}
+	secret = strings.TrimSpace(secret)
+	if secret == "" {
+		return buildErr
+	}
+
+	if err := app.AuthSvc.SaveProjectSecret(profile.APIKey, secret); err != nil {
+		return err
+	}
+	profile.AuthMethodHint = "signature"
+	app.Config.UpsertProject(*profile)
+	_ = app.SaveConfig()
+	fmt.Println("API secret saved. Continuing...")
+	return nil
 }
 
 func ensureFirstRunSetup(app *App) error {

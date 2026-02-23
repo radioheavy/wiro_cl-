@@ -4,10 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
+	"unicode"
 
 	"github.com/wiro-ai/wiro-cli/internal/api"
 )
@@ -79,7 +83,8 @@ func compact(v string, n int) string {
 }
 
 // DownloadOutputs downloads task output URLs into outputDir/taskID.
-func DownloadOutputs(task *api.Task, outputDir string) ([]string, error) {
+// Files are named with prompt-based slug for easier browsing.
+func DownloadOutputs(task *api.Task, outputDir, prompt string) ([]string, error) {
 	if task == nil || len(task.Outputs) == 0 {
 		return nil, nil
 	}
@@ -90,10 +95,7 @@ func DownloadOutputs(task *api.Task, outputDir string) ([]string, error) {
 	paths := make([]string, 0, len(task.Outputs))
 
 	for idx, out := range task.Outputs {
-		filename := out.Name
-		if strings.TrimSpace(filename) == "" {
-			filename = fmt.Sprintf("output-%d", idx+1)
-		}
+		filename := outputFilename(out, prompt, idx+1)
 		target := filepath.Join(base, filename)
 		if err := downloadFile(out.URL, target); err != nil {
 			return paths, err
@@ -121,4 +123,71 @@ func downloadFile(fileURL, targetPath string) error {
 		return fmt.Errorf("write output file %s: %w", targetPath, err)
 	}
 	return nil
+}
+
+func outputExt(out api.TaskOutput) string {
+	if ext := strings.TrimSpace(filepath.Ext(out.Name)); ext != "" {
+		return ext
+	}
+	if raw := strings.TrimSpace(out.URL); raw != "" {
+		if u, err := url.Parse(raw); err == nil {
+			if ext := strings.TrimSpace(filepath.Ext(u.Path)); ext != "" {
+				return ext
+			}
+		}
+	}
+	if ct := strings.TrimSpace(out.ContentType); ct != "" {
+		if exts, err := mime.ExtensionsByType(ct); err == nil && len(exts) > 0 {
+			return exts[0]
+		}
+	}
+	return ".bin"
+}
+
+func outputFilename(out api.TaskOutput, prompt string, index int) string {
+	if index < 1 {
+		index = 1
+	}
+	slug := promptSlug(prompt, 2)
+	if slug == "" {
+		slug = "output"
+	}
+	return fmt.Sprintf("%s-%d%s", slug, index, outputExt(out))
+}
+
+var nonWordRun = regexp.MustCompile(`[^a-z0-9]+`)
+
+func promptSlug(prompt string, maxWords int) string {
+	prompt = strings.TrimSpace(prompt)
+	if prompt == "" {
+		return ""
+	}
+	if maxWords <= 0 {
+		maxWords = 2
+	}
+
+	words := make([]string, 0, maxWords)
+	current := strings.Builder{}
+	for _, r := range prompt {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) {
+			current.WriteRune(unicode.ToLower(r))
+			continue
+		}
+		if current.Len() > 0 {
+			words = append(words, current.String())
+			current.Reset()
+			if len(words) >= maxWords {
+				break
+			}
+		}
+	}
+	if len(words) < maxWords && current.Len() > 0 {
+		words = append(words, current.String())
+	}
+
+	slug := strings.Join(words, "-")
+	slug = strings.ToLower(slug)
+	slug = nonWordRun.ReplaceAllString(slug, "-")
+	slug = strings.Trim(slug, "-")
+	return slug
 }

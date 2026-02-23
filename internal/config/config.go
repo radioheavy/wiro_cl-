@@ -6,11 +6,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
-const (
-	defaultOutputDir = "./wiro-outputs"
-)
+const legacyOutputDir = "./wiro-outputs"
 
 // ProjectProfile contains local project metadata and API key.
 type ProjectProfile struct {
@@ -37,9 +36,32 @@ func defaultConfig() Config {
 		Projects: []ProjectProfile{},
 		Preferences: Preferences{
 			WatchDefault:     true,
-			OutputDirDefault: defaultOutputDir,
+			OutputDirDefault: defaultOutputDir(),
 		},
 	}
+}
+
+func defaultOutputDir() string {
+	return filepath.Join(defaultDownloadsDir(), "wiro-outputs")
+}
+
+func defaultDownloadsDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil || strings.TrimSpace(home) == "" {
+		return "."
+	}
+	candidates := []string{
+		filepath.Join(home, "Downloads"),
+		filepath.Join(home, "İndirilenler"),
+		filepath.Join(home, "indirilenler"),
+	}
+	for _, c := range candidates {
+		if st, statErr := os.Stat(c); statErr == nil && st.IsDir() {
+			return c
+		}
+	}
+	// If none exists yet, default to common Downloads path.
+	return candidates[0]
 }
 
 func configDir() (string, error) {
@@ -79,8 +101,8 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("parse config json: %w", err)
 	}
 
-	if cfg.Preferences.OutputDirDefault == "" {
-		cfg.Preferences.OutputDirDefault = defaultOutputDir
+	if cfg.Preferences.OutputDirDefault == "" || cfg.Preferences.OutputDirDefault == legacyOutputDir {
+		cfg.Preferences.OutputDirDefault = defaultOutputDir()
 	}
 	return cfg, nil
 }

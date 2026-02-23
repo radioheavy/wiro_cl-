@@ -52,6 +52,8 @@ go build -o wiro ./cmd/wiro
 
 - Config: `~/.config/wiro/config.json`
 - State: `~/.config/wiro/state.json`
+- Default output directory: `~/Downloads/wiro-outputs/<taskid>`
+- Output file naming: `<prompt-first-two-words>-<index>.<ext>`
 
 ## Secret storage
 
