@@ -48,3 +48,13 @@ func TestBuildNonInteractiveInputs_ValidatesRequired(t *testing.T) {
 		t.Fatalf("unexpected output: %#v", out)
 	}
 }
+
+func TestBuildNonInteractiveInputs_PromptAlwaysRequired(t *testing.T) {
+	items := []api.ToolParameterItem{
+		{ID: "prompt", Required: false, Type: "text"},
+	}
+	_, err := buildNonInteractiveInputs(items, map[string][]api.MultipartValue{})
+	if err == nil {
+		t.Fatalf("expected prompt to be required")
+	}
+}

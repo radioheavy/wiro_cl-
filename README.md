@@ -8,13 +8,21 @@ Wiro CLI brings the Wiro model workflow to terminal:
 - live watch (WebSocket + polling fallback)
 - task detail/cancel/kill
 
-## Build
+## Quick install (user flow)
 
 ```bash
-go build -o wiro ./cmd/wiro
+npm i -g @toolbridge/wiro-cli
+wiro
 ```
 
-## Commands
+On first run, CLI asks:
+1. API key
+2. API secret
+3. Project name (optional)
+
+Then it continues with project/model/input selection.
+
+## Common commands
 
 ```bash
 wiro
@@ -33,6 +41,13 @@ wiro auth status
 wiro auth logout
 ```
 
+## Local development
+
+```bash
+go build -o wiro ./cmd/wiro
+./wiro
+```
+
 ## Config paths
 
 - Config: `~/.config/wiro/config.json`
@@ -45,7 +60,7 @@ wiro auth logout
 
 ## npm wrapper
 
-Wrapper package is located at `npm/` and expects release assets named:
+Wrapper package is in `npm/` and expects release assets named:
 
 - `wiro-darwin-x64`
 - `wiro-darwin-arm64`
@@ -54,11 +69,11 @@ Wrapper package is located at `npm/` and expects release assets named:
 - `wiro-win32-x64.exe`
 - `wiro-win32-arm64.exe`
 
-The postinstall downloader fetches from:
+Postinstall default download source:
 
 `https://github.com/wiro-ai/wiro-cli/releases/download/v<version>/<asset>`
 
-You can override with:
+Environment overrides:
 
 - `WIRO_CLI_DOWNLOAD_BASE`
 - `WIRO_CLI_SKIP_DOWNLOAD=1`

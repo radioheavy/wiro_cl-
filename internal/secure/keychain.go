@@ -6,12 +6,19 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 )
 
 const serviceName = "wiro"
+
+var (
+	macKeychainProbeOnce sync.Once
+	macKeychainUsable    bool
+)
 
 func bearerKey() string {
 	return "bearer-token"
@@ -52,7 +59,7 @@ func DeleteProjectSecret(apiKey string) error {
 }
 
 func setSecret(account, value string) error {
-	if runtime.GOOS == "darwin" {
+	if shouldUseMacKeychain() {
 		if err := macKeychainSet(account, value); err == nil {
 			return nil
 		}
@@ -61,7 +68,7 @@ func setSecret(account, value string) error {
 }
 
 func getSecret(account string) (string, error) {
-	if runtime.GOOS == "darwin" {
+	if shouldUseMacKeychain() {
 		if value, err := macKeychainGet(account); err == nil {
 			return value, nil
 		}
@@ -70,12 +77,56 @@ func getSecret(account string) (string, error) {
 }
 
 func deleteSecret(account string) error {
-	if runtime.GOOS == "darwin" {
+	if shouldUseMacKeychain() {
 		if err := macKeychainDelete(account); err == nil {
 			return nil
 		}
 	}
 	return fileSecretDelete(account)
+}
+
+func shouldUseMacKeychain() bool {
+	macKeychainProbeOnce.Do(func() {
+		macKeychainUsable = probeMacKeychain()
+	})
+	return macKeychainUsable
+}
+
+func probeMacKeychain() bool {
+	if runtime.GOOS != "darwin" {
+		return false
+	}
+	if strings.TrimSpace(os.Getenv("WIRO_NO_KEYCHAIN")) == "1" {
+		return false
+	}
+	if strings.TrimSpace(os.Getenv("WIRO_FORCE_KEYCHAIN")) == "1" {
+		return true
+	}
+
+	// If HOME is overridden (e.g. clean-room tests), macOS user keychain often becomes unavailable.
+	homeEnv := strings.TrimSpace(os.Getenv("HOME"))
+	if homeEnv != "" {
+		u, err := user.Current()
+		if err == nil && strings.TrimSpace(u.HomeDir) != "" {
+			if filepath.Clean(homeEnv) != filepath.Clean(u.HomeDir) {
+				return false
+			}
+		}
+	}
+
+	cmd := exec.Command("security", "default-keychain", "-d", "user")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return false
+	}
+	s := strings.TrimSpace(string(out))
+	if s == "" {
+		return false
+	}
+	if strings.Contains(strings.ToLower(s), "not found") {
+		return false
+	}
+	return true
 }
 
 func macKeychainSet(account, value string) error {

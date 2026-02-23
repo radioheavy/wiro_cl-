@@ -184,10 +184,9 @@ func (s *Service) WatchTask(ctx context.Context, taskToken string, headers map[s
 				onEvent(WatchEvent{Source: "ws", Type: typeVal, Text: text, Raw: msg})
 			}
 			if isTerminal(typeVal) {
-				detail, err := s.Detail(ctx, taskToken, headers)
-				if err == nil && len(detail.TaskList) > 0 {
-					task := detail.TaskList[0]
-					signalFinal(&task)
+				task, termErr := s.fetchTerminalDetail(ctx, taskToken, headers, 6)
+				if termErr == nil && task != nil {
+					signalFinal(task)
 					return
 				}
 			}
@@ -218,6 +217,33 @@ func looksLikeNumeric(v string) bool {
 		}
 	}
 	return true
+}
+
+func (s *Service) fetchTerminalDetail(ctx context.Context, taskToken string, headers map[string]string, maxAttempts int) (*api.Task, error) {
+	if maxAttempts < 1 {
+		maxAttempts = 1
+	}
+	var last *api.Task
+	for i := 0; i < maxAttempts; i++ {
+		detail, err := s.Detail(ctx, taskToken, headers)
+		if err != nil {
+			return nil, err
+		}
+		if len(detail.TaskList) == 0 {
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+		task := detail.TaskList[0]
+		last = &task
+		if isTerminal(task.Status) {
+			return &task, nil
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	if last != nil {
+		return last, nil
+	}
+	return nil, errors.New("task detail is empty")
 }
 
 type wsConn struct {

@@ -109,6 +109,10 @@ Flags:
 }
 
 func runInteractive(ctx context.Context, app *App, opts runOptions) error {
+	if err := ensureFirstRunSetup(app); err != nil {
+		return err
+	}
+
 	_, selectedProfile, err := resolveProject(ctx, app, opts.Project)
 	if err != nil {
 		return err
@@ -360,4 +364,57 @@ func printWatchEvent(ev task.WatchEvent) {
 			fmt.Printf("  %s\n", short(t, 180))
 		}
 	}
+}
+
+func ensureFirstRunSetup(app *App) error {
+	if len(app.Config.Projects) > 0 {
+		return nil
+	}
+	if app.AuthSvc.LoadBearerToken() != "" {
+		return nil
+	}
+	if !isInteractiveSession() {
+		return errors.New("no credentials found. run `wiro auth set --api-key <key> --api-secret <secret>` first")
+	}
+
+	fmt.Println("First-time setup")
+	apiKey, err := promptInput("API Key", "")
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(apiKey) == "" {
+		return errors.New("api key is required")
+	}
+	apiSecret, err := promptSecret("API Secret")
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(apiSecret) == "" {
+		return errors.New("api secret is required")
+	}
+	name, err := promptInput("Project name (optional)", "default")
+	if err != nil {
+		return err
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		name = "default"
+	}
+
+	if err := app.AuthSvc.SaveProjectSecret(apiKey, apiSecret); err != nil {
+		return err
+	}
+	app.Config.UpsertProject(config.ProjectProfile{
+		Name:           name,
+		APIKey:         apiKey,
+		AuthMethodHint: "signature",
+	})
+	if strings.TrimSpace(app.Config.DefaultProject) == "" {
+		app.Config.DefaultProject = apiKey
+	}
+	if err := app.SaveConfig(); err != nil {
+		return err
+	}
+	fmt.Println("Credentials saved. Continuing with project/model selection...")
+	return nil
 }

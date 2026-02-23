@@ -1,7 +1,7 @@
 {
-  "name": "@wiro-ai/cli",
+  "name": "@toolbridge/wiro-cli",
   "version": "0.1.0",
-  "description": "Wiro AI CLI npm wrapper",
+  "description": "Community npm wrapper for Wiro CLI",
   "license": "MIT",
   "bin": {
     "wiro": "bin/wiro"

@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
+	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -25,6 +28,8 @@ const (
 	paramCombineFile parameterInputKind = "combinefileinput"
 	paramRaw         parameterInputKind = "raw"
 )
+
+var ansiEscapeSeq = regexp.MustCompile(`\x1b\[[0-9;]*[A-Za-z]`)
 
 func (s *stringSlice) String() string {
 	return strings.Join(*s, ",")
@@ -95,11 +100,15 @@ func buildInteractiveInputs(items []api.ToolParameterItem, preset map[string][]a
 
 		switch mapParameterKind(item.Type) {
 		case paramText:
-			val, err := promptInput(fmt.Sprintf("%s (%s)", label, item.ID), defaultString(item.DefaultValue))
+			def := defaultString(item.DefaultValue)
+			if isPromptField(item) {
+				def = ""
+			}
+			val, err := promptInput(fmt.Sprintf("%s (%s)", label, item.ID), def)
 			if err != nil {
 				return nil, err
 			}
-			if strings.TrimSpace(val) == "" && item.Required {
+			if strings.TrimSpace(val) == "" && (item.Required || isPromptField(item)) {
 				return nil, fmt.Errorf("required field %q is empty", item.ID)
 			}
 			if strings.TrimSpace(val) != "" {
@@ -169,12 +178,24 @@ func buildInteractiveInputs(items []api.ToolParameterItem, preset map[string][]a
 			}
 			result[item.ID] = []api.MultipartValue{{Value: toVal[idx]}}
 		case paramCombineFile:
+			def := defaultArrayCSV(item.DefaultValue)
+			if strings.TrimSpace(def) != "" {
+				defCount := len(splitCSV(def))
+				if defCount > 0 {
+					fmt.Printf("Model sample inputs available (%d item(s)); type \"sample\" to use them.\n", defCount)
+				} else {
+					fmt.Println("Model sample input available; type \"sample\" to use it.")
+				}
+			}
 			ans, err := promptInput(
 				fmt.Sprintf("%s (%s) comma-separated file paths or URLs", label, item.ID),
-				defaultArrayCSV(item.DefaultValue),
+				"",
 			)
 			if err != nil {
 				return nil, err
+			}
+			if strings.EqualFold(strings.TrimSpace(ans), "sample") && strings.TrimSpace(def) != "" {
+				ans = def
 			}
 			values := splitCSV(ans)
 			if len(values) == 0 {
@@ -254,7 +275,7 @@ func mapParameterKind(paramType string) parameterInputKind {
 
 func validateRequired(items []api.ToolParameterItem, values map[string][]api.MultipartValue) error {
 	for _, item := range items {
-		if !item.Required {
+		if !item.Required && !isPromptField(item) {
 			continue
 		}
 		vals, ok := values[item.ID]
@@ -399,7 +420,7 @@ func promptInput(message, def string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	line = strings.TrimSpace(line)
+	line = sanitizePromptLine(line)
 	if line == "" {
 		return def, nil
 	}
@@ -407,7 +428,46 @@ func promptInput(message, def string) (string, error) {
 }
 
 func promptPassword(message string) (string, error) {
-	return promptInput(message, "")
+	if strings.TrimSpace(os.Getenv("WIRO_SECRET_VISIBLE")) == "1" {
+		return promptInput(message+" (visible)", "")
+	}
+	if !isInteractiveSession() {
+		return promptInput(message, "")
+	}
+	state, err := sttyState()
+	if err != nil {
+		return promptInput(message, "")
+	}
+	fmt.Printf("%s: ", message)
+	if err := stty("-echo"); err != nil {
+		return promptInput(message, "")
+	}
+	defer func() {
+		_ = stty(strings.TrimSpace(state))
+		fmt.Println()
+	}()
+
+	reader := bufio.NewReader(os.Stdin)
+	line, readErr := reader.ReadString('\n')
+	if readErr != nil {
+		return "", readErr
+	}
+	return strings.TrimSpace(line), nil
+}
+
+func promptSecret(message string) (string, error) {
+	secret, err := promptPassword(message + " (hidden; paste then press Enter)")
+	if err != nil {
+		return "", err
+	}
+	secret = strings.TrimSpace(secret)
+	if secret != "" {
+		return secret, nil
+	}
+
+	// Some terminals block paste under hidden input. Visible fallback keeps setup unblocked.
+	fmt.Println("No input captured in hidden mode. Switching to visible input fallback.")
+	return promptInput(message+" (visible fallback)", "")
 }
 
 func promptConfirm(message string, def bool) (bool, error) {
@@ -439,7 +499,15 @@ func promptSelect(message string, options []string, defaultIdx int) (int, error)
 	if defaultIdx < 0 || defaultIdx >= len(options) {
 		defaultIdx = 0
 	}
+	if isInteractiveSession() {
+		if idx, err := promptSelectArrows(message, options, defaultIdx); err == nil {
+			return idx, nil
+		}
+	}
+	return promptSelectNumeric(message, options, defaultIdx)
+}
 
+func promptSelectNumeric(message string, options []string, defaultIdx int) (int, error) {
 	fmt.Println(message)
 	for i, option := range options {
 		fmt.Printf("  %d) %s\n", i+1, option)
@@ -454,4 +522,179 @@ func promptSelect(message string, options []string, defaultIdx int) (int, error)
 		return 0, fmt.Errorf("invalid selection %q", ans)
 	}
 	return idx - 1, nil
+}
+
+func promptSelectArrows(message string, options []string, defaultIdx int) (int, error) {
+	if runtime.GOOS == "windows" {
+		return 0, errors.New("arrow prompt is not available on windows")
+	}
+	state, err := sttyState()
+	if err != nil {
+		return 0, err
+	}
+	if err := stty("raw", "-echo", "min", "1", "time", "0"); err != nil {
+		return 0, err
+	}
+	defer func() {
+		_ = stty(strings.TrimSpace(state))
+	}()
+
+	selected := defaultIdx
+	reader := bufio.NewReader(os.Stdin)
+	width := terminalWidth()
+	title := fitMenuLine(message, width-1)
+	displayOptions := make([]string, 0, len(options))
+	for _, option := range options {
+		displayOptions = append(displayOptions, fitMenuLine(option, width-4))
+	}
+	lines := len(displayOptions) + 1
+	rendered := false
+
+	render := func() {
+		if rendered {
+			for i := 0; i < lines; i++ {
+				fmt.Print("\033[1A\033[2K")
+			}
+		}
+		fmt.Print("\r\033[2K")
+		fmt.Printf("%s (↑/↓ + Enter, j/k)\n", title)
+		for i, option := range displayOptions {
+			prefix := "  "
+			if i == selected {
+				prefix = "> "
+			}
+			fmt.Print("\r\033[2K")
+			fmt.Printf("%s%s\n", prefix, option)
+		}
+		rendered = true
+	}
+
+	render()
+	for {
+		b, readErr := reader.ReadByte()
+		if readErr != nil {
+			return 0, readErr
+		}
+		switch b {
+		case '\r', '\n':
+			if rendered {
+				for i := 0; i < lines; i++ {
+					fmt.Print("\033[1A\033[2K")
+				}
+			}
+			choiceWidth := width - len(title) - 2
+			if choiceWidth < 20 {
+				choiceWidth = 20
+			}
+			fmt.Printf("%s: %s\n", title, fitMenuLine(options[selected], choiceWidth))
+			return selected, nil
+		case 3:
+			return 0, errors.New("interrupted")
+		case 'k', 'K':
+			selected = (selected - 1 + len(options)) % len(options)
+			render()
+		case 'j', 'J':
+			selected = (selected + 1) % len(options)
+			render()
+		case 27:
+			b2, err := reader.ReadByte()
+			if err != nil {
+				return 0, err
+			}
+			if b2 != '[' {
+				continue
+			}
+			b3, err := reader.ReadByte()
+			if err != nil {
+				return 0, err
+			}
+			switch b3 {
+			case 'A':
+				selected = (selected - 1 + len(options)) % len(options)
+				render()
+			case 'B':
+				selected = (selected + 1) % len(options)
+				render()
+			}
+		default:
+			if b >= '1' && b <= '9' {
+				candidate := int(b - '1')
+				if candidate >= 0 && candidate < len(options) {
+					selected = candidate
+					render()
+				}
+			}
+		}
+	}
+}
+
+func fitMenuLine(s string, width int) string {
+	s = strings.ReplaceAll(s, "\n", " ")
+	s = strings.ReplaceAll(s, "\r", " ")
+	s = strings.Join(strings.Fields(s), " ")
+	if width < 8 {
+		width = 8
+	}
+	runes := []rune(s)
+	if len(runes) <= width {
+		return s
+	}
+	return string(runes[:width-3]) + "..."
+}
+
+func terminalWidth() int {
+	if raw := strings.TrimSpace(os.Getenv("COLUMNS")); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n >= 40 {
+			return n
+		}
+	}
+	if runtime.GOOS != "windows" {
+		cmd := exec.Command("stty", "size")
+		cmd.Stdin = os.Stdin
+		out, err := cmd.Output()
+		if err == nil {
+			parts := strings.Fields(strings.TrimSpace(string(out)))
+			if len(parts) == 2 {
+				if n, parseErr := strconv.Atoi(parts[1]); parseErr == nil && n >= 40 {
+					return n
+				}
+			}
+		}
+	}
+	return 100
+}
+
+func sttyState() (string, error) {
+	if runtime.GOOS == "windows" {
+		return "", errors.New("stty unavailable")
+	}
+	cmd := exec.Command("stty", "-g")
+	cmd.Stdin = os.Stdin
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+func stty(args ...string) error {
+	if runtime.GOOS == "windows" {
+		return errors.New("stty unavailable")
+	}
+	cmd := exec.Command("stty", args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+func sanitizePromptLine(line string) string {
+	line = ansiEscapeSeq.ReplaceAllString(line, "")
+	line = strings.ReplaceAll(line, "\r", "")
+	line = strings.ReplaceAll(line, "\n", "")
+	return strings.TrimSpace(line)
+}
+
+func isPromptField(item api.ToolParameterItem) bool {
+	return strings.EqualFold(strings.TrimSpace(item.ID), "prompt")
 }
