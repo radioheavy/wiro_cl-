@@ -8,7 +8,7 @@ Wiro CLI brings the Wiro model workflow to terminal:
 - live watch (WebSocket + polling fallback)
 - task detail/cancel/kill
 
-## Quick install (user flow)
+## Quick install user flow
 
 ```bash
 npm i -g @toolbridge/wiro-cli
