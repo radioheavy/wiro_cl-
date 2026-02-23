@@ -1,34 +1,46 @@
 # Wiro CLI
 
-Wiro CLI brings the Wiro model workflow to terminal:
-- project selection
-- model search/inspect
-- dynamic model input form
-- run task
-- live watch (WebSocket + polling fallback)
-- task detail/cancel/kill
+Wiro CLI is a terminal client for discovering models, submitting runs, and watching task progress on Wiro AI.
 
-## Quick install user flow
+## Features
+
+- Interactive first-run setup (API key + API secret + project name)
+- Model search and inspection
+- Dynamic input prompts based on model schema
+- Task execution with live progress events (WebSocket + polling fallback)
+- Task detail, cancel, and kill commands
+- Automatic output download with readable filenames
+
+## Installation
+
+### npm (recommended)
 
 ```bash
 npm i -g @radioheavy/wiro-cli
-wiro
 ```
 
-Alternative installer (macOS/Linux):
+### Script installer (macOS/Linux)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/radioheavy/wiro_cl-/main/scripts/install.sh | sh
 ```
 
-On first run, CLI asks:
+## Quick Start
+
+Start the interactive flow:
+
+```bash
+wiro
+```
+
+On first run, the CLI asks for:
 1. API key
 2. API secret
 3. Project name (optional)
 
-Then it continues with project/model/input selection.
+Then it continues to model selection and input prompts.
 
-## Common commands
+## Common Commands
 
 ```bash
 wiro
@@ -47,34 +59,47 @@ wiro auth status
 wiro auth logout
 ```
 
-## Local development
+## Auth Modes
 
-```bash
-go build -o wiro ./cmd/wiro
-./wiro
-```
+Wiro CLI supports three auth header modes, selected automatically:
 
-Build release assets locally:
+- `signature`: `x-api-key`, `x-nonce`, `x-signature`
+- `bearer`: `Authorization: Bearer <token>`
+- `apikey-only`: `x-api-key`
 
-```bash
-./scripts/build-release-assets.sh
-```
+If a project requires `signature` and its API secret is missing, the CLI will ask for it in interactive mode.
 
-## Config paths
+## Config, State, and Secrets
 
-- Config: `~/.config/wiro/config.json`
-- State: `~/.config/wiro/state.json`
-- Default output directory: `~/Downloads/wiro-outputs/<taskid>`
-- Output file naming: `<prompt-first-two-words>-<index>.<ext>`
+The base config directory is `<UserConfigDir>/wiro`, where `<UserConfigDir>` comes from the OS.
 
-## Secret storage
+Typical paths:
 
-- macOS: Keychain (`security` CLI)
-- fallback: `~/.config/wiro/secrets.json` (mode `0600`) if keychain is unavailable
+- macOS: `~/Library/Application Support/wiro`
+- Linux: `~/.config/wiro`
 
-## npm wrapper
+Files:
 
-Wrapper package is in `npm/` and expects release assets named:
+- config: `<base>/config.json`
+- state: `<base>/state.json`
+- fallback secrets store: `<base>/secrets.json` (mode `0600`)
+
+Secret storage behavior:
+
+- macOS: uses Keychain (`security` CLI) when available
+- fallback: file-based `secrets.json`
+
+## Outputs
+
+- Default output root: `~/Downloads/wiro-outputs`
+- Per-task folder: `~/Downloads/wiro-outputs/<taskid>`
+- Filename format: `<prompt-first-two-words>-<index>.<ext>`
+
+## npm Wrapper Behavior
+
+The npm package downloads a platform-specific binary from GitHub Releases during `postinstall`.
+
+Expected release assets:
 
 - `wiro-darwin-x64`
 - `wiro-darwin-arm64`
@@ -83,44 +108,84 @@ Wrapper package is in `npm/` and expects release assets named:
 - `wiro-win32-x64.exe`
 - `wiro-win32-arm64.exe`
 
-Postinstall default download source:
+Default download URL format:
 
 `https://github.com/radioheavy/wiro_cl-/releases/download/v<version>/<asset>`
 
-Environment overrides:
+Supported environment overrides:
 
 - `WIRO_CLI_DOWNLOAD_BASE`
 - `WIRO_CLI_SKIP_DOWNLOAD=1`
 - `WIRO_CLI_BIN`
 - `WIRO_CLI_REPO`
 
+## Local Development
+
+Build and run locally:
+
+```bash
+go build -o wiro ./cmd/wiro
+./wiro
+```
+
+Run tests:
+
+```bash
+go test ./...
+```
+
+Build all release assets:
+
+```bash
+./scripts/build-release-assets.sh
+```
+
 ## Release and Publish
 
-- Push tag `vX.Y.Z` to trigger GitHub Release workflow.
-- Release workflow uploads these assets:
-  - `wiro-darwin-x64`
-  - `wiro-darwin-arm64`
-  - `wiro-linux-x64`
-  - `wiro-linux-arm64`
-  - `wiro-win32-x64.exe`
-  - `wiro-win32-arm64.exe`
-- When release is published, npm publish workflow runs and publishes `@radioheavy/wiro-cli`.
-- Required GitHub secret for npm workflow: `NPM_TOKEN`.
+### Standard CI flow
+
+1. Push tag `vX.Y.Z`
+2. `release.yml` builds and uploads binary assets to GitHub Release
+3. `npm-publish.yml` publishes `@radioheavy/wiro-cli` from the release event
+
+Required repository secret:
+
+- `NPM_TOKEN`
 
 ### Manual fallback (without GitHub Actions)
 
-If release/publish actions fail, run:
+If CI fails, run:
 
 ```bash
 ./scripts/prepare-manual-release.sh X.Y.Z
 ```
 
-This command:
-- runs all Go tests
-- builds all 6 release binaries under `dist/release-vX.Y.Z/`
-- writes `SHA256SUMS`
-- updates `npm/package.json` version to `X.Y.Z`
+This script:
 
-Then upload assets and publish npm manually (printed at the end of script):
-- `gh release create ...` (or `gh release upload ... --clobber`)
-- `cd npm && npm publish`
+- runs `go test ./...`
+- builds all release binaries into `dist/release-vX.Y.Z/`
+- generates `SHA256SUMS`
+- syncs `npm/package.json` version to `X.Y.Z`
+
+Then follow the script output to:
+
+- create/upload GitHub release assets with `gh release`
+- publish manually with `cd npm && npm publish`
+
+## Troubleshooting
+
+### `npm install -g @radioheavy/wiro-cli@<version>` fails with 404
+
+Cause: release assets for that version are missing in GitHub Release.
+
+Fix:
+
+1. Upload all required assets listed above.
+2. Verify a direct asset URL returns `302` (GitHub redirect), not `404`.
+3. Re-run npm install.
+
+### `wiro` does not show first-time setup
+
+Cause: existing local config and/or stored Keychain secrets.
+
+Fix: remove local Wiro config/state files and related Keychain entries, then run `wiro` again.
