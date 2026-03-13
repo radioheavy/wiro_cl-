@@ -1,0 +1,58 @@
+{
+  "$schema": "https://wvw.dev/apps.schema.json",
+  "store": {
+    "name": "radioheavy Apps",
+    "developer": "radioheavy",
+    "tagline": "Privacy-first AI tools for creators and developers",
+    "github": "https://github.com/radioheavy"
+  },
+  "categories": [
+    {
+      "id": "cli",
+      "name": "CLI Apps"
+    },
+    {
+      "id": "developer-tools",
+      "name": "Developer Tools"
+    },
+    {
+      "id": "productivity",
+      "name": "Productivity"
+    }
+  ],
+  "apps": [
+    {
+      "id": "radioheavy-wiro-cli",
+      "name": "Wiro CLI",
+      "developer": "radioheavy",
+      "subtitle": "Terminal client for discovering models, running tasks, and watching progress on Wiro AI",
+      "description": "Search models, submit runs, manage auth, and monitor task progress from the command line with interactive setup and output downloads.",
+      "longDescription": "Wiro CLI is a terminal client for Wiro AI that covers model discovery, interactive run submission, task inspection, cancellation, and live progress watching. It supports interactive first-run setup, dynamic input prompts generated from model schemas, multiple auth header modes, WebSocket progress with polling fallback, automatic output downloads with readable filenames, and both npm and direct binary installation flows. Secrets are stored in macOS Keychain when available, with a local fallback store for other environments.",
+      "icon": null,
+      "iconEmoji": "⌘",
+      "category": [
+        "cli",
+        "developer-tools",
+        "productivity"
+      ],
+      "platform": "CLI",
+      "price": "Free",
+      "github": "https://github.com/radioheavy/wiro_cl-",
+      "homepage": "https://github.com/radioheavy/wiro_cl-#readme",
+      "language": "Go",
+      "installCommand": "npm i -g @radioheavy/wiro-cli",
+      "downloadUrl": "https://github.com/radioheavy/wiro_cl-/releases/latest",
+      "requirements": "Node.js 18+ for npm install, or use the standalone release binaries on macOS, Linux, or Windows.",
+      "features": [
+        "Interactive first-run setup for API key, secret, and project selection",
+        "Model search and inspection from the terminal",
+        "Dynamic run prompts generated from model schema inputs",
+        "Live task progress via WebSocket with polling fallback",
+        "Task detail, cancel, and kill commands",
+        "Automatic output downloads with readable filenames",
+        "macOS Keychain integration with fallback local secret storage"
+      ],
+      "screenshots": []
+    }
+  ]
+}
